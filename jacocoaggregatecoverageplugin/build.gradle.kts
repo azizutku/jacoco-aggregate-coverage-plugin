@@ -12,6 +12,7 @@ plugins {
 dependencies {
     compileOnly(libs.android.gradle.api)
     detektPlugins(libs.bundles.detekt)
+    implementation("org.jsoup:jsoup:1.16.2")
 }
 
 java {
