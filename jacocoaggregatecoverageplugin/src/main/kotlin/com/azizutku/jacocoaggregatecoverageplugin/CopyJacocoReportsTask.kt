@@ -68,7 +68,6 @@ internal abstract class CopyJacocoReportsTask : DefaultTask() {
         }
         copyRequiredResources(outputDirectoryResources.get().asFile)
 
-        var foundAny = false
         project.subprojects.forEach { subproject ->
             val jacocoReportDir = subproject.layout.buildDirectory
                 .dir(reportDirectory)
@@ -80,17 +79,7 @@ internal abstract class CopyJacocoReportsTask : DefaultTask() {
                     from(jacocoReportDir)
                     into(aggregatedReportDir.get().dir(subproject.path))
                 }
-                foundAny = true
             }
-        }
-
-        if (foundAny.not()) {
-            logger.error(
-                "There is no generated test report, you should " +
-                    "run `${pluginExtension.jacocoTestReportTask.get()}` task first, " +
-                    "then call `aggregateJacocoReports`. Or you can run " +
-                    "`generateAndAggregateJacocoReports` task directly."
-            )
         }
     }
 
