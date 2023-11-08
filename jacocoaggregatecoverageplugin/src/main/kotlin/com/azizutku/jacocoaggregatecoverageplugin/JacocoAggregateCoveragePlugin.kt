@@ -70,6 +70,17 @@ internal class JacocoAggregateCoveragePlugin : Plugin<Project> {
                 project.layout.buildDirectory.dir(PLUGIN_OUTPUT_PATH)
             )
             val jacocoTestReportTasks = getJacocoTestReportTasks(project, pluginExtension)
+            if (jacocoTestReportTasks.isEmpty()) {
+                val jacocoTestReportTask = pluginExtension.jacocoTestReportTask.get()
+                project.logger.error(
+                    """
+                        There are no tasks named '$jacocoTestReportTask' in your project. Please 
+                        ensure that you set the `jacocoTestReportTask` property in the plugin 
+                        extension to the name of the task you use to generate JaCoCo test reports.
+                    """.trimIndent()
+                )
+                return@configure
+            }
             copyReportsTaskProvider.get().mustRunAfter(jacocoTestReportTasks)
             dependsOn(copyReportsTaskProvider)
             dependsOn(jacocoTestReportTasks)
