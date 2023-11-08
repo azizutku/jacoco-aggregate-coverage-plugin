@@ -24,7 +24,7 @@ plugins {
 
 ### Step 2: Configure the plugin in the root `build.gradle[.kts]` file
 ```kotlin
-configure<JacocoAggregateCoveragePluginExtension> {
+jacocoAggregateCoverage {
     jacocoTestReportTask.set("YOUR_JACOCO_TEST_REPORT_TASK")
     // Other optional configurations
 }
@@ -41,7 +41,7 @@ The unified report will be generated at **`build/reports/jacocoAggregated/index.
 # Configuration
 Configure the plugin in your root-level `build.gradle[.kts]` file:
 ```kotlin
-configure<JacocoAggregateCoveragePluginExtension> {
+jacocoAggregateCoverage {
     jacocoTestReportTask.set("jacocoTestDebugUnitTestReport")
     // Add the report directory only if you have a custom directory set
     configuredCustomReportsDirectory.set("customJacocoReportDir")
