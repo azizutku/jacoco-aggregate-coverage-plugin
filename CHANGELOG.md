@@ -8,6 +8,7 @@
 - Android Gradle Plugin 9.4.0 and JVM integration coverage.
 - Configurable aggregate output through `aggregatedReportDirectory`.
 - Report variant publishing when the plugin is applied to a participating subproject.
+- Deterministic `summary.json` output with aggregate and per-module coverage counters.
 
 ### Changed
 - Require Java 17 and update the build to Gradle 9.7.1, Kotlin 2.4.20, and current tooling.

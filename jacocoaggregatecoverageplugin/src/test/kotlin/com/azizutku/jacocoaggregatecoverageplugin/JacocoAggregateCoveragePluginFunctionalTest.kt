@@ -33,8 +33,15 @@ class JacocoAggregateCoveragePluginFunctionalTest {
         assertEquals(TaskOutcome.FROM_CACHE, cacheRestoreRun.task(":aggregateJacocoReports")?.outcome)
 
         val aggregateIndex = Files.readString(reportDirectory.resolve("index.html"))
+        val aggregateSummary = Files.readString(reportDirectory.resolve("summary.json"))
         assertTrue(aggregateIndex.contains("href=\"alpha/index.html\""), aggregateIndex)
         assertTrue(aggregateIndex.contains("href=\"feature/beta/index.html\""), aggregateIndex)
+        assertTrue(aggregateSummary.contains("\"schemaVersion\": 1"), aggregateSummary)
+        assertTrue(aggregateSummary.contains("\"path\": \":alpha\""), aggregateSummary)
+        assertTrue(
+            aggregateSummary.contains("\"reportPath\": \"feature/beta/index.html\""),
+            aggregateSummary,
+        )
         assertTrue(Files.isRegularFile(reportDirectory.resolve("jacoco-resources/report.css")))
 
         val nestedIndex = Files.readString(reportDirectory.resolve("feature/beta/index.html"))
@@ -61,13 +68,16 @@ class JacocoAggregateCoveragePluginFunctionalTest {
         assertEquals(TaskOutcome.SUCCESS, testAddedRun.task(":aggregateJacocoReports")?.outcome)
         assertTrue(testAddedRun.output.contains("Reusing configuration cache."), testAddedRun.output)
         val reportWithAdditionalTest = Files.readString(reportDirectory.resolve("index.html"))
+        val summaryWithAdditionalTest = Files.readString(reportDirectory.resolve("summary.json"))
         assertNotEquals(aggregateIndex, reportWithAdditionalTest)
+        assertNotEquals(aggregateSummary, summaryWithAdditionalTest)
 
         Files.delete(projectDirectory.resolve(additionalTest))
         val testRemovedRun = runner(isolatedProjects = true).build()
         assertEquals(TaskOutcome.FROM_CACHE, testRemovedRun.task(":aggregateJacocoReports")?.outcome)
         assertTrue(testRemovedRun.output.contains("Reusing configuration cache."), testRemovedRun.output)
         assertEquals(aggregateIndex, Files.readString(reportDirectory.resolve("index.html")))
+        assertEquals(aggregateSummary, Files.readString(reportDirectory.resolve("summary.json")))
     }
 
     @Test
@@ -255,6 +265,12 @@ class JacocoAggregateCoveragePluginFunctionalTest {
         assertTrue(Files.isRegularFile(report), report.toString())
         val index = Files.readString(projectDirectory.resolve("build/reports/jacocoAggregated/index.html"))
         assertTrue(index.contains("%C3%B6zellik/%C3%B6deme/index.html"), index)
+        val summary = Files.readString(projectDirectory.resolve("build/reports/jacocoAggregated/summary.json"))
+        assertTrue(summary.contains("\"path\": \":özellik:ödeme\""), summary)
+        assertTrue(
+            summary.contains("\"reportPath\": \"%C3%B6zellik/%C3%B6deme/index.html\""),
+            summary,
+        )
     }
 
     @Test

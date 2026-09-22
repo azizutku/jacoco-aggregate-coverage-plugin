@@ -63,11 +63,19 @@ target.extensions.configure<JacocoAggregateReportPluginExtension> {
 ./gradlew aggregateJacocoReports
 ```
 
-The selected report task runs in each participating module. The aggregate report is written to:
+The selected report task runs in each participating module. The output directory contains:
 
 ```text
 build/reports/jacocoAggregated/index.html
+build/reports/jacocoAggregated/summary.json
 ```
+
+`index.html` is the aggregate dashboard. `summary.json` is a deterministic, machine-readable
+summary containing aggregate totals and per-module counters for instructions, branches,
+complexity, lines, methods, and classes. Every counter provides exact `missed`, `covered`, and
+`total` values. Module entries also include the Gradle project path and the relative HTML report
+path. The JSON uses schema version `1`; existing fields keep their names, types, and meaning within
+that version.
 
 ## Optional configuration
 

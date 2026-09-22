@@ -4,6 +4,7 @@ import com.azizutku.jacocoaggregatecoverageplugin.models.CoverageMetrics
 import com.azizutku.jacocoaggregatecoverageplugin.models.CoverageRankings
 import com.azizutku.jacocoaggregatecoverageplugin.models.ModuleCoverageRow
 import com.azizutku.jacocoaggregatecoverageplugin.utils.HtmlCodeGenerator
+import com.azizutku.jacocoaggregatecoverageplugin.utils.JsonSummaryGenerator
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
@@ -28,6 +29,7 @@ import javax.inject.Inject
 private const val TOTAL_COVERAGE_PLACEHOLDER = "TOTAL_COVERAGE_PLACEHOLDER"
 private const val LINKED_MODULES_PLACEHOLDER = "LINKED_MODULES_PLACEHOLDER"
 private const val TEMPLATE_RESOURCE = "/html/index.html"
+private const val JSON_SUMMARY_FILE = "summary.json"
 private const val UNSIGNED_BYTE_MASK = 0xff
 private const val HEX_BYTE_LENGTH = 2
 private const val HEX_RADIX = 16
@@ -110,11 +112,18 @@ internal abstract class AggregateJacocoReportsTask : DefaultTask() {
         val coverageByModule = copiedReports.mapValues { (_, directory) ->
             parseCoverageMetrics(directory)
         }
+        val totalCoverage = coverageByModule.values.fold(CoverageMetrics(), CoverageMetrics::plus)
 
         copiedReports.forEach { (modulePath, directory) ->
             updateBreadcrumb(File(directory, "index.html"), modulePath)
         }
-        writeAggregateIndex(output, coverageByModule)
+        writeAggregateIndex(output, coverageByModule, totalCoverage)
+        val jsonSummary = JsonSummaryGenerator().generate(
+            totalCoverage = totalCoverage,
+            coverageByModule = coverageByModule,
+            reportPath = { modulePath -> "${moduleOutputPath(modulePath)}/index.html" },
+        )
+        File(output, JSON_SUMMARY_FILE).writeText(jsonSummary, StandardCharsets.UTF_8)
 
         logger.lifecycle("Aggregated JaCoCo report: ${File(output, "index.html").absolutePath}")
     }
@@ -201,7 +210,11 @@ internal abstract class AggregateJacocoReportsTask : DefaultTask() {
         indexFile.writeText(document.outerHtml(), StandardCharsets.UTF_8)
     }
 
-    private fun writeAggregateIndex(output: File, coverageByModule: Map<String, CoverageMetrics>) {
+    private fun writeAggregateIndex(
+        output: File,
+        coverageByModule: Map<String, CoverageMetrics>,
+        totalCoverage: CoverageMetrics,
+    ) {
         val maximumInstructionTotal = coverageByModule.values.maxOf(CoverageMetrics::instructionsTotal)
         val maximumBranchesTotal = coverageByModule.values.maxOf(CoverageMetrics::branchesTotal)
         val rankings = CoverageRankings(coverageByModule)
@@ -220,12 +233,11 @@ internal abstract class AggregateJacocoReportsTask : DefaultTask() {
                 ),
             )
         }
-        val total = coverageByModule.values.fold(CoverageMetrics(), CoverageMetrics::plus)
         val template = javaClass.getResourceAsStream(TEMPLATE_RESOURCE)?.bufferedReader()?.use {
             it.readText()
         } ?: throw GradleException("Plugin resource '$TEMPLATE_RESOURCE' is missing.")
         val html = template
-            .replace(TOTAL_COVERAGE_PLACEHOLDER, htmlGenerator.createTotalCoverageString(total))
+            .replace(TOTAL_COVERAGE_PLACEHOLDER, htmlGenerator.createTotalCoverageString(totalCoverage))
             .replace(LINKED_MODULES_PLACEHOLDER, tableRows)
         File(output, "index.html").writeText(html, StandardCharsets.UTF_8)
     }
