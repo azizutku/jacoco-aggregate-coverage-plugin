@@ -4,20 +4,26 @@ import com.azizutku.jacocoaggregatecoverageplugin.extensions.JacocoAggregateCove
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.Task
-import org.gradle.api.file.Directory
-import org.gradle.testing.jacoco.tasks.JacocoReport
-import java.io.File
-import java.nio.file.Path
+import org.gradle.api.artifacts.Configuration
+import org.gradle.api.attributes.Category
+import org.gradle.api.attributes.VerificationType
+import org.gradle.api.provider.Provider
 
 private const val TASK_GROUP = "verification"
 private const val TASK_AGGREGATE_JACOCO_REPORTS = "aggregateJacocoReports"
 private const val EXTENSION_NAME_PLUGIN = "jacocoAggregateCoverage"
 private const val PLUGIN_OUTPUT_PATH = "reports/jacocoAggregated"
+private const val REPORTS_CONFIGURATION_NAME = "jacocoAggregateReports"
+private const val PARTICIPANTS_CONFIGURATION_NAME = "jacocoAggregationParticipants"
 
 internal class JacocoAggregateCoveragePlugin : Plugin<Project> {
 
     override fun apply(project: Project) {
+        if (project.path != Project.PATH_SEPARATOR) {
+            JacocoAggregateReportPlugin().apply(project)
+            return
+        }
+
         val extension = project.extensions.create(
             EXTENSION_NAME_PLUGIN,
             JacocoAggregateCoveragePluginExtension::class.java,
@@ -27,70 +33,90 @@ internal class JacocoAggregateCoveragePlugin : Plugin<Project> {
             )
         }
 
+        @Suppress("DEPRECATION")
+        val reportSelection = extension.jacocoTestReportTask.orElse(SELECTED_JACOCO_REPORT)
+
+        val reports = createReportsConfiguration(project, reportSelection)
+        val participants = createParticipantsConfiguration(project)
+
+        project.subprojects.forEach { subproject ->
+            listOf(REPORTS_CONFIGURATION_NAME, PARTICIPANTS_CONFIGURATION_NAME).forEach { name ->
+                project.dependencies.add(
+                    name,
+                    project.dependencies.project(mapOf("path" to subproject.path)),
+                )
+            }
+        }
+
+        val reportArtifacts = reports.incoming.artifactView { view ->
+            view.isLenient = true
+        }.files
+        val participantArtifacts = participants.incoming.artifactView { view ->
+            view.isLenient = true
+        }.files
+
         project.tasks.register(
             TASK_AGGREGATE_JACOCO_REPORTS,
             AggregateJacocoReportsTask::class.java,
         ) { task ->
+            validateLegacyConfiguration(extension)
             task.group = TASK_GROUP
             task.description = "Aggregates JaCoCo HTML reports from all participating subprojects"
+            task.reportTaskName.set(reportSelection)
+            task.reportArtifacts.from(reportArtifacts)
+            task.participantArtifacts.from(participantArtifacts)
             task.outputDirectory.set(extension.aggregatedReportDirectory)
-
-            val reportTaskName = extension.jacocoTestReportTask.orNull
-                ?: throw GradleException(
-                    "Set jacocoAggregateCoverage.jacocoTestReportTask before running " +
-                        "'$TASK_AGGREGATE_JACOCO_REPORTS'.",
-                )
-            val configuredReportDirectory = extension.getReportDirectory()
-            val reports = findReports(project, reportTaskName, configuredReportDirectory)
-
-            if (reports.isEmpty()) {
-                throw GradleException(
-                    "No '$reportTaskName' tasks were found in the subprojects of ${project.path}.",
-                )
-            }
-
-            reports.forEach { report ->
-                task.moduleReportLocations.put(
-                    report.modulePath,
-                    reportLocationIdentity(project.rootDir.toPath(), report.directory.asFile.toPath()),
-                )
-                task.moduleReportDirectories.put(report.modulePath, report.directory)
-                task.jacocoReports.from(report.directory)
-            }
-            task.dependsOn(reports.map(ModuleReport::task))
         }
     }
 
-    private fun findReports(
-        project: Project,
-        reportTaskName: String,
-        configuredReportDirectory: String?,
-    ): List<ModuleReport> = project.subprojects.mapNotNull { subproject ->
-        val reportTask = subproject.tasks.findByName(reportTaskName) ?: return@mapNotNull null
-        val directory = if (reportTask is JacocoReport &&
-            extensionDoesNotOverrideReportDirectory(project)
+    private fun createReportsConfiguration(project: Project, reportSelection: Provider<String>): Configuration =
+        project.configurations.create(REPORTS_CONFIGURATION_NAME) { configuration ->
+            configuration.isCanBeConsumed = false
+            configuration.isCanBeResolved = true
+            configuration.attributes { attributes ->
+                attributes.attribute(
+                    Category.CATEGORY_ATTRIBUTE,
+                    project.objects.named(Category::class.java, Category.VERIFICATION),
+                )
+                attributes.attribute(
+                    VerificationType.VERIFICATION_TYPE_ATTRIBUTE,
+                    project.objects.named(
+                        VerificationType::class.java,
+                        JACOCO_HTML_REPORT_VERIFICATION_TYPE,
+                    ),
+                )
+                attributes.attributeProvider(JACOCO_REPORT_TASK_ATTRIBUTE, reportSelection)
+            }
+        }
+
+    private fun createParticipantsConfiguration(project: Project): Configuration =
+        project.configurations.create(PARTICIPANTS_CONFIGURATION_NAME) { configuration ->
+            configuration.isCanBeConsumed = false
+            configuration.isCanBeResolved = true
+            configuration.attributes { attributes ->
+                attributes.attribute(
+                    Category.CATEGORY_ATTRIBUTE,
+                    project.objects.named(Category::class.java, Category.VERIFICATION),
+                )
+                attributes.attribute(
+                    VerificationType.VERIFICATION_TYPE_ATTRIBUTE,
+                    project.objects.named(
+                        VerificationType::class.java,
+                        JACOCO_AGGREGATION_PARTICIPANT_VERIFICATION_TYPE,
+                    ),
+                )
+            }
+        }
+
+    @Suppress("DEPRECATION")
+    private fun validateLegacyConfiguration(extension: JacocoAggregateCoveragePluginExtension) {
+        if (extension.configuredCustomReportsDirectory.isPresent ||
+            extension.configuredCustomHtmlOutputLocation.isPresent
         ) {
-            reportTask.reports.html.outputLocation.get()
-        } else {
-            val path = configuredReportDirectory
-                ?: throw GradleException("Unable to determine the JaCoCo HTML report directory.")
-            subproject.layout.buildDirectory.dir(path).get()
+            throw GradleException(
+                "Custom report locations must be published from the participating project with " +
+                    "jacocoAggregateReport.",
+            )
         }
-        ModuleReport(subproject.path, reportTask, directory)
     }
-
-    private fun reportLocationIdentity(rootDirectory: Path, reportDirectory: Path): String =
-        runCatching { rootDirectory.relativize(reportDirectory).toString() }
-            .getOrElse { reportDirectory.toAbsolutePath().normalize().toString() }
-            .replace(File.separatorChar, '/')
-
-    private fun extensionDoesNotOverrideReportDirectory(project: Project): Boolean {
-        val extension = project.extensions.getByType(
-            JacocoAggregateCoveragePluginExtension::class.java,
-        )
-        return !extension.configuredCustomReportsDirectory.isPresent &&
-            !extension.configuredCustomHtmlOutputLocation.isPresent
-    }
-
-    private data class ModuleReport(val modulePath: String, val task: Task, val directory: Directory)
 }

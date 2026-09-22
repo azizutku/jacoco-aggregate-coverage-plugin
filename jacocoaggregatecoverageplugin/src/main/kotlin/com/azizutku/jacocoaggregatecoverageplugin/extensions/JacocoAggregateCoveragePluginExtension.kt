@@ -4,22 +4,20 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
 
 interface JacocoAggregateCoveragePluginExtension {
+    @get:Deprecated(
+        "Configure reportTaskName in each participating project with jacocoAggregateReport.",
+    )
     val jacocoTestReportTask: Property<String>
+
+    @get:Deprecated(
+        "Configure custom HTML output in the producing project with jacocoAggregateReport.",
+    )
     val configuredCustomReportsDirectory: Property<String>
+
+    @get:Deprecated(
+        "Configure custom HTML output in the producing project with jacocoAggregateReport.",
+    )
     val configuredCustomHtmlOutputLocation: Property<String>
+
     val aggregatedReportDirectory: DirectoryProperty
-
-    fun getReportDirectory(): String? = when {
-        configuredCustomHtmlOutputLocation.orNull != null ->
-            configuredCustomHtmlOutputLocation.get()
-
-        configuredCustomReportsDirectory.orNull != null ->
-            jacocoTestReportTask.orNull?.let { taskName ->
-                "${configuredCustomReportsDirectory.get()}/$taskName/html"
-            }
-
-        else -> jacocoTestReportTask.orNull?.let { taskName ->
-            "reports/jacoco/$taskName/html"
-        }
-    }
 }
