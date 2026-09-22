@@ -1,29 +1,48 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import io.gitlab.arturbosch.detekt.extensions.DetektExtension
+import dev.detekt.gradle.extensions.DetektExtension
+import org.gradle.plugin.compatibility.compatibility
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
+    alias(libs.plugins.kotlin.jvm)
     id("com.gradle.plugin-publish")
-    id("io.gitlab.arturbosch.detekt")
-    `kotlin-dsl`
+    id("dev.detekt")
     `maven-publish`
 }
 
 dependencies {
-    compileOnly(libs.android.gradle.api)
     detektPlugins(libs.bundles.detekt)
-    implementation("org.jsoup:jsoup:1.16.2")
+    implementation(libs.jsoup)
+
+    testImplementation(gradleTestKit())
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
-tasks.withType<KotlinCompile>().configureEach {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_11)
+tasks.withType<KotlinJvmCompile>().configureEach {
+    compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+}
+
+tasks.test {
+    useJUnitPlatform {
+        excludeTags("android-integration")
     }
+}
+
+tasks.register<Test>("androidIntegrationTest") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Runs the Android and JVM consumer integration test"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags("android-integration")
+    }
+    shouldRunAfter(tasks.test)
 }
 
 gradlePlugin {
@@ -32,33 +51,33 @@ gradlePlugin {
     plugins {
         create("JacocoAggregateCoveragePlugin") {
             id = "com.azizutku.jacocoaggregatecoverageplugin"
-            displayName = "Jacoco Aggregate Coverage Plugin"
-            description = "The JaCoCo Aggregate Coverage Plugin simplifies the process of " +
-                    "generating a unified code coverage report for multi-module Gradle projects. " +
-                    "Leveraging the power of JaCoCo, it seamlessly aggregates coverage data " +
-                    "across all subprojects, creating a comprehensive overview of your project's " +
-                    "test coverage. This plugin is ideal for large-scale projects where insight " +
-                    "into overall code quality is essential."
+            displayName = "JaCoCo Aggregate Coverage Plugin"
+            description = "Creates an aggregate HTML coverage dashboard from existing JaCoCo " +
+                "reports in multi-module Android and JVM builds."
             implementationClass =
                 "com.azizutku.jacocoaggregatecoverageplugin.JacocoAggregateCoveragePlugin"
             tags.set(
                 listOf(
                     "jacoco", "coverage", "code-coverage", "report", "aggregation",
-                    "unified-report", "multi-module", "test-coverage", "aggregated-test-coverage",
-                    "unified-test-coverage", "android", "kotlin"
+                    "dashboard", "multi-module", "test-coverage", "aggregated-test-coverage",
+                    "android", "jvm", "kotlin"
                 )
             )
+            compatibility {
+                features {
+                    configurationCache = true
+                    isolatedProjects = true
+                }
+            }
         }
     }
 }
 
 configure<DetektExtension> {
-    source = project.files("src/main/kotlin")
+    source.setFrom("src/main/kotlin")
     buildUponDefaultConfig = true
     allRules = false
-    config = files("$rootDir/.detekt/config.yml")
-    baseline = file("$rootDir/.detekt/baseline.xml")
 }
 
 group = "com.azizutku.jacocoaggregatecoverageplugin"
-version = "0.1.0"
+version = providers.gradleProperty("pluginVersion").getOrElse("0.2.0")

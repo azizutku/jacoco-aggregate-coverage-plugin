@@ -13,28 +13,30 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout Project
-        uses: actions/checkout@v3.5.2
-
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v1.0.6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Configure JDK
-        uses: actions/setup-java@v3.11.0
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: 'temurin'
-          java-version: '11'
-          cache: gradle
+          java-version: '17'
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
-      - name: Run build with caching enabled
-        uses: gradle/gradle-build-action@v2.4.2
-        with:
-          arguments: clean build -s
+      - name: Install Android SDK packages
+        run: >-
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "platforms;android-35"
+          "build-tools;36.0.0"
 
-      - name: Run Detekt
-        run: ./gradlew detektMain
+      - name: Build, test, and analyze
+        run: >-
+          ./gradlew clean build detekt androidIntegrationTest
+          --isolated-projects
+          --configuration-cache-problems=fail
+          --warning-mode all
