@@ -2,28 +2,22 @@ package com.azizutku.jacocoaggregatecoverageplugin.utils
 
 import com.azizutku.jacocoaggregatecoverageplugin.models.CoverageMetrics
 import com.azizutku.jacocoaggregatecoverageplugin.models.ModuleCoverageRow
+import org.jsoup.nodes.Entities
 
-/**
- * Utility class for generating HTML code for coverage reporting.
- */
 internal class HtmlCodeGenerator {
-
-    /**
-     * Generates HTML for a table row representing a module's coverage metrics.
-     *
-     * @param moduleName Name of the module.
-     * @param coverageMetrics Coverage metrics associated with the module.
-     * @param moduleCoverageRow Detailed coverage data for the module.
-     * @return HTML string for the module's coverage table row.
-     */
     fun generateModuleCoverageTableRowHtml(
         moduleName: String,
+        moduleHref: String,
         coverageMetrics: CoverageMetrics,
         moduleCoverageRow: ModuleCoverageRow,
     ): String = with(moduleCoverageRow) {
+        val escapedModuleName = Entities.escape(moduleName)
+        val escapedModuleHref = Entities.escape(moduleHref)
         return """
             <tr>
-                <td id="a$moduleNameOrder"><a href="$moduleName/index.html">$moduleName</a></td>
+                <td id="a$moduleNameOrder">
+                    <a href="$escapedModuleHref">$escapedModuleName</a>
+                </td>
                 <td class="bar" id="b$instructionsMissedOrder">
                     $instructionMissedRedProgressBar$instructionMissedGreenProgressBar
                 </td>
@@ -46,15 +40,7 @@ internal class HtmlCodeGenerator {
         """.trimIndent()
     }
 
-    /**
-     * Creates an HTML string representing the total coverage metrics.
-     * This string is used to populate the summary section of the unified report.
-     *
-     * @param metrics The aggregated coverage metrics.
-     * @return An HTML string representing the total coverage.
-     */
     fun createTotalCoverageString(metrics: CoverageMetrics): String = with(metrics) {
-        // Constructing the total coverage string to replace in the HTML template
         val instructionsCoveragePercentage = CoverageMetrics.calculateCoveragePercentage(
             instructionsMissed,
             instructionsTotal,

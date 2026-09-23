@@ -1,21 +1,23 @@
 [versions]
-kotlin = "1.9.10"
-androidGradlePlugin = "8.1.2"
-gradlePublish = "1.2.0"
-detekt = "1.22.0"
+kotlin = "2.4.20"
+gradlePublish = "2.2.1"
+detekt = "2.0.0-alpha.6"
+jsoup = "1.23.1"
+junit = "5.14.0"
+junitPlatform = "1.14.0"
 
 [libraries]
-# Android Gradle Api Plugin
-android-gradle-api = { group = "com.android.tools.build", name = "gradle-api", version.ref = "androidGradlePlugin" }
+jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher", version.ref = "junitPlatform" }
 
 # Detekt plugins
-detekt-formating = { group = "io.gitlab.arturbosch.detekt", name = "detekt-formatting", version.ref = "detekt" }
-detekt-rules = { group = "io.gitlab.arturbosch.detekt", name = "detekt-rules", version.ref = "detekt" }
+detekt-formatting = { group = "dev.detekt", name = "detekt-rules-ktlint-wrapper", version.ref = "detekt" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 gradle-publish = { id = "com.gradle.plugin-publish", version.ref = "gradlePublish" }
-detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }
 
 [bundles]
-detekt = ["detekt.formating", "detekt.rules"]
+detekt = ["detekt.formatting"]
